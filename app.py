@@ -9,18 +9,23 @@ warning_message_access_denied = "인증된 사용자가 아닙니다."
 warning_message_expired = "사용 기간이 만료되었습니다."
 
 
-class Main:
+class App:
     def __init__(self):
         self.macAddressChecker = MACAddressChecker(
             default_set_date, days, default_mac_address
         )
-        self.warningUI = WarningUI(warning_message_access_denied)
+        self.warning_access_denied = WarningUI(warning_message_access_denied)
+        self.warning_expired = WarningUI(warning_message_expired)
 
-    def main(self):
-        if self.macAddressChecker.is_default_mac_address:
-            if self.macAddressChecker.is_expired:
+    def start(self):
+        if self.macAddressChecker.is_default_mac_address():
+            if self.macAddressChecker.is_expired():
                 return "..."
             else:
-                self.warningUI.show_warning(warning_message_expired)
+                self.warning_expired.show_warning()
         else:
-            self.warningUI.show_warning()
+            self.warning_access_denied.show_warning()
+
+
+app = App()
+app.start()
