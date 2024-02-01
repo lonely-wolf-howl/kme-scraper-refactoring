@@ -1,7 +1,7 @@
 import customtkinter as ctk
 
 
-class OptionFrame(ctk.CTkFrame):
+class AmazonIherbOptionFrame(ctk.CTkFrame):
     def __init__(self, parent, font_style):
         super().__init__(parent)
         self.pack(side="left", fill="both", expand=True, padx=(10, 5), pady=10)
@@ -34,7 +34,7 @@ class OptionFrame(ctk.CTkFrame):
         )
 
 
-class EntryFrame(ctk.CTkFrame):
+class AmazonIDPasswordInputFrame(ctk.CTkFrame):
     def __init__(self, parent, font_style):
         super().__init__(parent)
         self.pack(side="right", fill="both", expand=True, padx=(5, 10), pady=10)
