@@ -1,5 +1,5 @@
-from MAC.checker import MACAddressChecker
-from UI.warning import WarningUI
+from mac.checker import MACAddressChecker
+from ui.warning import WarningUI
 
 default_set_date = "2024-02-01"
 days = 30
@@ -14,17 +14,17 @@ class App:
         self.macAddressChecker = MACAddressChecker(
             default_set_date, days, default_mac_address
         )
-        self.warning_access_denied = WarningUI(warning_message_access_denied)
-        self.warning_expired = WarningUI(warning_message_expired)
+        self.access_denied = WarningUI(warning_message_access_denied)
+        self.expired = WarningUI(warning_message_expired)
 
     def start(self):
         if self.macAddressChecker.is_default_mac_address():
             if self.macAddressChecker.is_expired():
                 return "..."
             else:
-                self.warning_expired.show_warning()
+                self.expired.show_warning()
         else:
-            self.warning_access_denied.show_warning()
+            self.access_denied.show_warning()
 
 
 app = App()
