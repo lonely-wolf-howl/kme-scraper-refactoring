@@ -20,6 +20,10 @@ driver = webdriver.Chrome(options=options)
 driver.get("https://www.amazon.com/")
 
 import time
+import os
+import requests
+from PIL import Image, ImageOps
+from selenium.common.exceptions import NoSuchElementException
 
 
 class MainUI:
@@ -32,9 +36,16 @@ class MainUI:
         self.UI = False  # flag
         self.id_entry = None
         self.password_entry = None
+        self.naver_checkbox = None
+        self.coupang_checkbox = None
         self.url_entry = None
         self.url_scrollable_frame = None
         self.log_textbox = None
+
+        self.naver_thumbnail_size = 1000
+        self.naver_image_size = 860
+        self.coupangr_thumbnail_size = 500
+        self.coupang_image_size = 780
 
     def start(self):
         root = ctk.CTk()
@@ -94,15 +105,15 @@ class MainUI:
         image_frame.pack(side="top", fill="both", expand=True, padx=10, pady=(10, 2.5))
 
         # 네이버 = checkbox
-        naver_checkbox = ctk.CTkCheckBox(
+        self.naver_checkbox = ctk.CTkCheckBox(
             image_frame, text=" 네이버 (1000 , 860)", font=self.font_style
         )
-        naver_checkbox.pack(expand=True, side="left", padx=(50, 10), pady=10)
+        self.naver_checkbox.pack(expand=True, side="left", padx=(50, 10), pady=10)
         # 쿠팡 = checkbox
-        coupang_checkbox = ctk.CTkCheckBox(
+        self.coupang_checkbox = ctk.CTkCheckBox(
             image_frame, text=" 쿠팡 (500 , 780)", font=self.font_style
         )
-        coupang_checkbox.pack(expand=True, side="left", padx=(10, 50), pady=10)
+        self.coupang_checkbox.pack(expand=True, side="left", padx=(10, 50), pady=10)
 
         border_frame = ctk.CTkFrame(frame_02)
         border_frame.pack(side="top", fill="both", expand=True, padx=10, pady=(2.5, 10))
@@ -243,9 +254,10 @@ class MainUI:
         self.logger("처리 중입니다. 여유롭게 기다려주세요!")
 
         if option == "amazon":
-            self.login_amazon(1, 0.3)
+            self.login_amazon(1, 0.5)
+            self.amazon_crawler()
 
-    def login_amazon(self, sleep_time, delay_time):
+    def login_amazon(self, sleep_time: int, delay_time: int):
         driver.get(
             "https://www.amazon.com/-/ko/ap/signin?openid.pape.max_auth_age=0&openid.return_to=https%3A%2F%2Fwww.amazon.com%2F%3Flanguage%3Dko_KR%26ref_%3Dnav_ya_signin&openid.identity=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0%2Fidentifier_select&openid.assoc_handle=usflex&openid.mode=checkid_setup&openid.claimed_id=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0%2Fidentifier_select&openid.ns=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0&"
         )
@@ -269,6 +281,129 @@ class MainUI:
             time.sleep(delay)
         time.sleep(sleep_time)
         driver.find_element(By.CSS_SELECTOR, "#signInSubmit").click()
+
+    def amazon_crawler(self):
+        for url in self.manageVaribles.get_urls():
+            print(url)
+            time.sleep(1)
+            driver.get(url)
+
+            product_name = driver.find_element(By.CSS_SELECTOR, "#productTitle").text
+
+            pattern = r"dp\/([A-Z0-9]{10})\/"
+            asin_code = re.search(pattern, url).group(1)
+
+            folder_path = os.path.join("./amazon", f"{asin_code}")
+            os.makedirs(folder_path, exist_ok=True)
+            print(f"{asin_code} => folder created!")
+
+            driver.find_element(By.CSS_SELECTOR, "#imgTagWrapperId").click()
+            time.sleep(1)
+
+            num = 0
+            while True:
+                css_selector = f"#ivImage_{num} > div"
+                try:
+                    driver.find_element(By.CSS_SELECTOR, css_selector).click()
+
+                    time.sleep(2)
+                    image_url = driver.find_element(
+                        By.CSS_SELECTOR, "#ivLargeImage > img"
+                    ).get_attribute("src")
+
+                    response = requests.get(image_url)
+                    filename = f"image{num + 1}.jpg"
+                    with open(f"./amazon/{asin_code}/{filename}", "wb+") as f:
+                        f.write(response.content)
+                    print(f"{num + 1} => save complete!")
+
+                    image = Image.open(f"./amazon/{asin_code}/{filename}")
+
+                    if self.naver_checkbox.get():
+                        self.retouch_product_image(
+                            "naver", asin_code, image, filename, num
+                        )
+                    if self.coupang_checkbox.get():
+                        self.retouch_product_image(
+                            "coupang", asin_code, image, filename, num
+                        )
+
+                    num += 1
+
+                except NoSuchElementException:
+                    print("no more images exist")
+                    break
+
+            if self.naver_checkbox.get():
+                self.create_thumbnail_image("naver", asin_code)
+            if self.coupang_checkbox.get():
+                self.create_thumbnail_image("coupang", asin_code)
+
+            time.sleep(1)
+            for num in range(0, 10):
+                css_selector = f"#a-popover-{num} > div > header > button"
+            try:
+                driver.find_element(By.CSS_SELECTOR, css_selector).click()
+            except NoSuchElementException:
+                pass
+
+            self.logger("모든 사진이 정상적으로 저장되었습니다.")
+
+    def retouch_product_image(
+        self, naver_coupang: str, asin_code: str, image, filename: str, num: int
+    ):
+        folder_path = os.path.join(f"./amazon/{asin_code}", f"{naver_coupang}")
+        os.makedirs(folder_path, exist_ok=True)
+
+        if naver_coupang == "naver":
+            new_image = ImageOps.pad(
+                image,
+                (self.naver_image_size - 40, self.naver_image_size - 40),
+                color="white",
+            )
+        else:
+            new_image = ImageOps.pad(
+                image,
+                (self.coupang_image_size - 40, self.coupang_image_size - 40),
+                color="white",
+            )
+        border_thickness = 20
+        image_with_border = ImageOps.expand(
+            new_image, border=border_thickness, fill="white"
+        )
+
+        image_with_border.save(f"./amazon/{asin_code}/{naver_coupang}/{filename}")
+
+        print(f"{num + 1} => retouch complete!")
+
+    def create_thumbnail_image(self, naver_coupang: str, asin_code: str):
+        image = Image.open(f"./amazon/{asin_code}/{naver_coupang}/image1.jpg")
+
+        if naver_coupang == "naver":
+            new_image = ImageOps.pad(
+                image,
+                (self.naver_thumbnail_size - 40, self.naver_thumbnail_size - 40),
+                color="white",
+            )
+        else:
+            new_image = ImageOps.pad(
+                image,
+                (self.coupangr_thumbnail_size - 40, self.coupangr_thumbnail_size - 40),
+                color="white",
+            )
+        border_thickness = 10
+        image_with_border = ImageOps.expand(
+            new_image, border=border_thickness, fill="white"
+        )
+        border_thickness = 10
+        border_color = self.manageVaribles.get_thumbnail_border_color()
+        thumbnail = ImageOps.expand(
+            image_with_border, border=border_thickness, fill=border_color
+        )
+
+        thumbnail.save(f"./amazon/{asin_code}/{naver_coupang}/thumbnail.jpg")
+
+        print(f"{asin_code} => thumbnail created!")
 
 
 class ManageVariables:
@@ -297,6 +432,9 @@ class ManageVariables:
     def update_thumbnail_border_color(self, value: str):
         self.thumbnail_border_color = value.strip()
         print("thumbnail border color =>", self.thumbnail_border_color)
+
+    def get_thumbnail_border_color(self) -> str:
+        return self.thumbnail_border_color
 
     def append_url(self, url: str):
         if self.amazon_iherb_option == "amazon":
