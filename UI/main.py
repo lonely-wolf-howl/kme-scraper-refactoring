@@ -1,7 +1,25 @@
 import customtkinter as ctk
 import openpyxl
 import re
+
+# Python Type Hint
 from typing import List
+
+# Provides the Selenium WebDriver API for browser automation.
+from selenium import webdriver
+
+# Offers various methods for identifying web elements in Selenium.
+from selenium.webdriver.common.by import By
+
+# ChromeOptions
+options = webdriver.ChromeOptions()
+options.add_experimental_option("detach", True)
+
+# Chrome WebDriver
+driver = webdriver.Chrome(options=options)
+driver.get("https://www.amazon.com/")
+
+import time
 
 
 class MainUI:
@@ -11,10 +29,12 @@ class MainUI:
         self.manageVaribles = ManageVariables()
         self.excelCRUD = ExcelCRUD()
 
-        self.UI = False
+        self.UI = False  # flag
+        self.id_entry = None
+        self.password_entry = None
         self.url_entry = None
-        self.log_textbox = None
         self.url_scrollable_frame = None
+        self.log_textbox = None
 
     def start(self):
         root = ctk.CTk()
@@ -50,17 +70,17 @@ class MainUI:
         entry_frame.pack(fill="both", side="right", expand=True, padx=(5, 10), pady=10)
 
         # Mobile phone number or email = entry
-        id_entry = ctk.CTkEntry(
+        self.id_entry = ctk.CTkEntry(
             entry_frame,
             placeholder_text=" Mobile phone number or email",
             font=self.font_style,
         )
-        id_entry.pack(side="top", fill="x", expand=True, padx=20, pady=(10, 2.5))
+        self.id_entry.pack(side="top", fill="x", expand=True, padx=20, pady=(10, 2.5))
         # Password = entry
-        password_entry = ctk.CTkEntry(
+        self.password_entry = ctk.CTkEntry(
             entry_frame, placeholder_text=" Password", font=self.font_style
         )
-        password_entry.pack(
+        self.password_entry.pack(
             side="bottom", fill="x", expand=True, padx=20, pady=(2.5, 10)
         )
 
@@ -137,7 +157,7 @@ class MainUI:
             width=200,
             text="제품 사진 수집 => 금지 성분 조사",
             font=self.font_style,
-            # command=images_and_ingredients
+            command=self.images_and_ingredients,
         )
         add_button.pack(fill="x", padx=10, pady=(2.5, 10))
 
@@ -216,6 +236,39 @@ class MainUI:
             # 제품 주소 = label
             label = ctk.CTkLabel(url_frame, text=url, font=self.font_style)
             label.pack(side="left", padx=5, pady=5, anchor="center")
+
+    def images_and_ingredients(self):
+        option: str = self.manageVaribles.get_amazon_iherb_option()
+
+        self.logger("처리 중입니다. 여유롭게 기다려주세요!")
+
+        if option == "amazon":
+            self.login_amazon(1, 0.3)
+
+    def login_amazon(self, sleep_time, delay_time):
+        driver.get(
+            "https://www.amazon.com/-/ko/ap/signin?openid.pape.max_auth_age=0&openid.return_to=https%3A%2F%2Fwww.amazon.com%2F%3Flanguage%3Dko_KR%26ref_%3Dnav_ya_signin&openid.identity=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0%2Fidentifier_select&openid.assoc_handle=usflex&openid.mode=checkid_setup&openid.claimed_id=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0%2Fidentifier_select&openid.ns=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0&"
+        )
+
+        time.sleep(sleep_time)
+        input_string = self.id_entry.get()
+        delay = delay_time
+        input_field = driver.find_element(By.CSS_SELECTOR, "#ap_email")
+        for character in input_string:
+            input_field.send_keys(character)
+            time.sleep(delay)
+        time.sleep(sleep_time)
+        driver.find_element(By.CSS_SELECTOR, "#continue").click()
+
+        time.sleep(sleep_time)
+        input_string = self.password_entry.get()
+        delay = delay_time
+        input_field = driver.find_element(By.CSS_SELECTOR, "#ap_password")
+        for character in input_string:
+            input_field.send_keys(character)
+            time.sleep(delay)
+        time.sleep(sleep_time)
+        driver.find_element(By.CSS_SELECTOR, "#signInSubmit").click()
 
 
 class ManageVariables:
