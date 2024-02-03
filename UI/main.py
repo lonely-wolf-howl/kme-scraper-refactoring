@@ -24,6 +24,7 @@ import os
 import requests
 from PIL import Image, ImageOps
 from selenium.common.exceptions import NoSuchElementException
+import pytesseract
 
 
 class MainUI:
@@ -339,15 +340,9 @@ class MainUI:
             if self.coupang_checkbox.get():
                 self.create_thumbnail_image("coupang", asin_code)
 
-            time.sleep(1)
-            for num in range(0, 10):
-                css_selector = f"#a-popover-{num} > div > header > button"
-            try:
-                driver.find_element(By.CSS_SELECTOR, css_selector).click()
-            except NoSuchElementException:
-                pass
-
             self.logger("모든 사진이 정상적으로 저장되었습니다.")
+
+            self.ocr_ingredients(asin_code)
 
     def retouch_product_image(
         self, naver_coupang: str, asin_code: str, image, filename: str, num: int
@@ -404,6 +399,53 @@ class MainUI:
         thumbnail.save(f"./amazon/{asin_code}/{naver_coupang}/thumbnail.jpg")
 
         print(f"{asin_code} => thumbnail created!")
+
+    def ocr_ingredients(self, asin_code: str):
+        time.sleep(1)
+        warning_ingredients = []
+
+        num = 0
+        while os.path.exists(f"./amazon/{asin_code}/image{num + 1}.jpg"):
+            ocr_text: str = pytesseract.image_to_string(
+                Image.open(f"./amazon/{asin_code}/image{num + 1}.jpg"), lang="eng"
+            )
+
+            with open("./2022.10.16.txt", "r") as f:
+                word_list = [line.strip() for line in f.readlines() if line.strip()]
+
+            found = False  # flag
+
+            for word in word_list:
+                if word.lower() in ocr_text.lower():
+                    ocr_words = ocr_text.split()
+
+                    for ocr_word in ocr_words:
+                        if word.lower() in ocr_word.lower():
+                            ocr_word = (
+                                ocr_word.replace("(", "")
+                                .replace(")", "")
+                                .replace(".", "")
+                                .replace(",", "")
+                            )
+                            warning_message = f"[ {ocr_word} ] => {word}"
+                            warning_message = warning_message.replace("?", "").replace(
+                                "_", ""
+                            )
+
+                            if warning_message not in warning_ingredients:
+                                warning_ingredients.append(warning_message)
+
+                            found = True
+
+                    if not found:
+                        pass
+
+            num += 1
+
+        print(f"\n{warning_ingredients}\n")
+        warning_ingredients_string = "\n".join(warning_ingredients)
+
+        self.logger("금지 성분 검사가 완료되었습니다.")
 
 
 class ManageVariables:
