@@ -11,6 +11,7 @@ class MainUI:
         self.manageVaribles = ManageVariables()
         self.excelCRUD = ExcelCRUD()
 
+        self.UI = False
         self.url_entry = None
         self.log_textbox = None
         self.url_scrollable_frame = None
@@ -152,56 +153,51 @@ class MainUI:
         )
         self.log_textbox.pack(fill="both", expand=True, padx=10, pady=10)
 
+        self.UI = True
         root.mainloop()
 
-    def check_duplicates_and_add_URL(self):
-        amazon_iherb_value = self.manageVaribles.get_amazon_iherb_option()
-
-        if amazon_iherb_value == "amazon":
-            amazon_url = self.url_entry.get().strip()
-
-            sheet = self.excelCRUD.choose_sheet("amazon")
-            print(sheet)  # <Worksheet "amazon">
-
-            products_amazon_urls = []
-
-            for row in sheet.iter_rows(min_row=2, min_col=4, max_col=4):
-                for cell in row:
-                    products_amazon_urls.append(cell.value)
-
+    def logger(self, message: str):
+        if self.UI:
             self.log_textbox.delete("0.0", ctk.END)
-            if amazon_url in products_amazon_urls:
-                answer = "[경고] 중복되는 제품 주소가 존재합니다!"
-                self.log_textbox.insert("0.0", answer)
-            else:
-                answer = "제품 주소가 추가되었습니다."
-                self.log_textbox.insert("0.0", answer)
+            self.log_textbox.insert("0.0", message)
 
-                self.manageVaribles.append_amazon_url(amazon_url)
+    def check_duplicates_and_add_URL(self):
+        option: str = self.manageVaribles.get_amazon_iherb_option()
 
-                # 제품 주소 = frame
-                url_frame = ctk.CTkFrame(self.url_scrollable_frame)
-                url_frame.pack(fill="x", pady=(5, 0))
+        url = self.url_entry.get().strip()
 
-                # 삭제 = button
-                delete_button = ctk.CTkButton(
-                    url_frame,
-                    text="삭제",
-                    width=50,
-                    fg_color="#CC3D3D",
-                    hover_color="#960707",
-                    font=self.font_style,
-                    command=lambda frame=url_frame, url=amazon_url: (
-                        self.manageVaribles.remove_amazon_url(url),
-                        self.log_textbox.delete("0.0", ctk.END),
-                        self.log_textbox.insert("0.0", "삭제 완료!"),
-                        frame.destroy(),
-                    ),
-                )
-                delete_button.pack(side="left", padx=5, pady=5)
+        products_urls_from_excel = self.excelCRUD.get_products_urls(option)
 
+        if url in products_urls_from_excel:
+            self.logger("[경고] 중복되는 제품 주소가 존재합니다!")
+        else:
+            self.logger("제품 주소가 추가되었습니다.")
+
+            self.manageVaribles.append_url(url)
+
+            # 제품 주소 = frame
+            url_frame = ctk.CTkFrame(self.url_scrollable_frame)
+            url_frame.pack(fill="x", pady=(5, 0))
+
+            # 삭제 = button
+            delete_button = ctk.CTkButton(
+                url_frame,
+                text="삭제",
+                width=50,
+                fg_color="#CC3D3D",
+                hover_color="#960707",
+                font=self.font_style,
+                command=lambda frame=url_frame, url=url: (
+                    self.manageVaribles.remove_url(url),
+                    self.logger("삭제 완료!"),
+                    frame.destroy(),
+                ),
+            )
+            delete_button.pack(side="left", padx=5, pady=5)
+
+            if option == "amazon":
+                asin_code = re.search(r"dp\/([A-Z0-9]{10})\/", url).group(1)
                 # 제품 번호(asin_code) = button
-                asin_code = re.search(r"dp\/([A-Z0-9]{10})\/", amazon_url).group(1)
                 asin_code_button = ctk.CTkButton(
                     url_frame,
                     text=f"{asin_code}",
@@ -209,10 +205,17 @@ class MainUI:
                     font=self.font_style,
                 )
                 asin_code_button.pack(side="left", pady=5)
+            else:
+                product_id = url.rsplit("/", 1)[-1].replace("?rec=home", "")
+                # 제품 번호(product_id) = button
+                product_id_button = ctk.CTkButton(
+                    url_frame, text=f"{product_id}", width=50, font=self.font_style
+                )
+                product_id_button.pack(side="left", pady=5)
 
-                # 제품 주소 = label
-                label = ctk.CTkLabel(url_frame, text=amazon_url, font=self.font_style)
-                label.pack(side="left", padx=5, pady=5, anchor="center")
+            # 제품 주소 = label
+            label = ctk.CTkLabel(url_frame, text=url, font=self.font_style)
+            label.pack(side="left", padx=5, pady=5, anchor="center")
 
 
 class ManageVariables:
@@ -221,35 +224,44 @@ class ManageVariables:
         amazon_iherb_option="amazon",
         thumbnail_border_color="white",
         amazon_urls=[],
+        iherb_urls=[],
     ):
         self.amazon_iherb_option = amazon_iherb_option
         self.thumbnail_border_color = thumbnail_border_color
         self.amazon_urls: List[str] = amazon_urls
+        self.iherb_urls: List[str] = iherb_urls
 
     def update_amazon_iherb_option(self, value: str):
         if value.strip() == "아마존":
             self.amazon_iherb_option = "amazon"
         else:
             self.amazon_iherb_option = "iherb"
-        print(self.amazon_iherb_option)
+        print("amazon/iherb =>", self.amazon_iherb_option)
 
     def get_amazon_iherb_option(self) -> str:
         return self.amazon_iherb_option
 
     def update_thumbnail_border_color(self, value: str):
         self.thumbnail_border_color = value.strip()
-        print(self.thumbnail_border_color)
+        print("thumbnail border color =>", self.thumbnail_border_color)
 
-    def append_amazon_url(self, amazon_url: str):
-        self.amazon_urls.append(amazon_url)
-        print(self.amazon_urls)
+    def append_url(self, url: str):
+        if self.amazon_iherb_option == "amazon":
+            self.amazon_urls.append(url)
+        else:
+            self.iherb_urls.append(url)
 
-    def remove_amazon_url(self, amazon_url: str):
-        self.amazon_urls.remove(amazon_url)
-        print(self.amazon_urls)
+    def remove_url(self, url: str):
+        if self.amazon_iherb_option == "amazon":
+            self.amazon_urls.remove(url)
+        else:
+            self.iherb_urls.remove(url)
 
-    def get_amazon_urls(self) -> List[str]:
-        return self.amazon_urls
+    def get_urls(self) -> List[str]:
+        if self.amazon_iherb_option == "amazon":
+            return self.amazon_urls
+        else:
+            return self.iherb_urls
 
 
 class ExcelCRUD:
@@ -258,6 +270,12 @@ class ExcelCRUD:
             "products.xlsx", data_only=True
         )  # from app.py
 
-    def choose_sheet(self, value: str):
-        sheet = self.excel_file[value]
-        return sheet
+    def get_products_urls(self, option: str) -> List[str]:
+        sheet = self.excel_file[option]
+        print(sheet)  # <Worksheet "...">
+
+        products_urls = []
+        for row in sheet.iter_rows(min_row=2, min_col=4, max_col=4):
+            for cell in row:
+                products_urls.append(cell.value)
+        return products_urls
