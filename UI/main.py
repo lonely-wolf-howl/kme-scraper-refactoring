@@ -344,6 +344,14 @@ class MainUI:
 
             self.ocr_ingredients(asin_code)
 
+            self.excelCRUD.update_row_values(
+                "amazon",
+                asin_code,
+                product_name,
+                self.manageVaribles.get_suspicious_ingredients(),
+                url,
+            )
+
     def retouch_product_image(
         self, naver_coupang: str, asin_code: str, image, filename: str, num: int
     ):
@@ -402,7 +410,7 @@ class MainUI:
 
     def ocr_ingredients(self, asin_code: str):
         time.sleep(1)
-        warning_ingredients = []
+        suspicious_ingredients = []
 
         num = 0
         while os.path.exists(f"./amazon/{asin_code}/image{num + 1}.jpg"):
@@ -426,14 +434,15 @@ class MainUI:
                                 .replace(")", "")
                                 .replace(".", "")
                                 .replace(",", "")
+                                .replace(":", "")
                             )
                             warning_message = f"[ {ocr_word} ] => {word}"
                             warning_message = warning_message.replace("?", "").replace(
                                 "_", ""
                             )
 
-                            if warning_message not in warning_ingredients:
-                                warning_ingredients.append(warning_message)
+                            if warning_message not in suspicious_ingredients:
+                                suspicious_ingredients.append(warning_message)
 
                             found = True
 
@@ -442,69 +451,71 @@ class MainUI:
 
             num += 1
 
-        print(f"\n{warning_ingredients}\n")
-        warning_ingredients_string = "\n".join(warning_ingredients)
+        suspicious_ingredients_string = "\n".join(suspicious_ingredients)
+        self.manageVaribles.update_suspicious_ingredients(suspicious_ingredients_string)
 
         self.logger("금지 성분 검사가 완료되었습니다.")
 
 
 class ManageVariables:
-    def __init__(
-        self,
-        amazon_iherb_option="amazon",
-        thumbnail_border_color="white",
-        amazon_urls=[],
-        iherb_urls=[],
-    ):
-        self.amazon_iherb_option = amazon_iherb_option
-        self.thumbnail_border_color = thumbnail_border_color
-        self.amazon_urls: List[str] = amazon_urls
-        self.iherb_urls: List[str] = iherb_urls
+    def __init__(self):
+        self._amazon_iherb_option = "amazon"
+        self._thumbnail_border_color = "white"
+        self._amazon_urls: List[str] = []
+        self._iherb_urls: List[str] = []
+        self._suspicious_ingredients = ""
 
     def update_amazon_iherb_option(self, value: str):
         if value.strip() == "아마존":
-            self.amazon_iherb_option = "amazon"
+            self._amazon_iherb_option = "amazon"
         else:
-            self.amazon_iherb_option = "iherb"
-        print("amazon/iherb =>", self.amazon_iherb_option)
+            self._amazon_iherb_option = "iherb"
+        print("amazon/iherb =>", self._amazon_iherb_option)
 
     def get_amazon_iherb_option(self) -> str:
-        return self.amazon_iherb_option
+        return self._amazon_iherb_option
 
     def update_thumbnail_border_color(self, value: str):
-        self.thumbnail_border_color = value.strip()
-        print("thumbnail border color =>", self.thumbnail_border_color)
+        self._thumbnail_border_color = value.strip()
+        print("thumbnail border color =>", self._thumbnail_border_color)
 
     def get_thumbnail_border_color(self) -> str:
-        return self.thumbnail_border_color
+        return self._thumbnail_border_color
 
     def append_url(self, url: str):
-        if self.amazon_iherb_option == "amazon":
-            self.amazon_urls.append(url)
+        if self._amazon_iherb_option == "amazon":
+            self._amazon_urls.append(url)
         else:
-            self.iherb_urls.append(url)
+            self._iherb_urls.append(url)
 
     def remove_url(self, url: str):
-        if self.amazon_iherb_option == "amazon":
-            self.amazon_urls.remove(url)
+        if self._amazon_iherb_option == "amazon":
+            self._amazon_urls.remove(url)
         else:
-            self.iherb_urls.remove(url)
+            self._iherb_urls.remove(url)
 
     def get_urls(self) -> List[str]:
-        if self.amazon_iherb_option == "amazon":
-            return self.amazon_urls
+        if self._amazon_iherb_option == "amazon":
+            return self._amazon_urls
         else:
-            return self.iherb_urls
+            return self._iherb_urls
+
+    def update_suspicious_ingredients(self, value: str):
+        self._suspicious_ingredients = value
+        print("suspicious ingredients =>", self._suspicious_ingredients)
+
+    def get_suspicious_ingredients(self) -> str:
+        return self._suspicious_ingredients
 
 
 class ExcelCRUD:
     def __init__(self):
-        self.excel_file = openpyxl.load_workbook(
+        self._excel_file = openpyxl.load_workbook(
             "products.xlsx", data_only=True
         )  # from app.py
 
     def get_products_urls(self, option: str) -> List[str]:
-        sheet = self.excel_file[option]
+        sheet = self._excel_file[option]
         print(sheet)  # <Worksheet "...">
 
         products_urls = []
@@ -512,3 +523,17 @@ class ExcelCRUD:
             for cell in row:
                 products_urls.append(cell.value)
         return products_urls
+
+    def update_row_values(
+        self,
+        option: str,
+        asin_code: str,
+        product_name: str,
+        suspicious_ingredients_string: str,
+        url: str,
+    ):
+        row_values = [asin_code, product_name, suspicious_ingredients_string, url]
+
+        sheet = self._excel_file[option]
+        sheet.append(row_values)
+        self._excel_file.save("products.xlsx")
