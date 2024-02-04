@@ -2,7 +2,6 @@ import customtkinter as ctk
 import tkinter as tk
 import openpyxl
 import re
-
 # Python Type Hint
 from typing import List
 
@@ -41,8 +40,8 @@ class MainUI:
         self.manageVaribles = ManageVariables()
         self.excelCRUD = ExcelCRUD()
 
-        # init UI
         self.UI = False  # flag
+        # init UI
         self.id_entry = None
         self.password_entry = None
         self.naver_checkbox = None
@@ -58,8 +57,12 @@ class MainUI:
 
         self.naver_thumbnail_size = 1000
         self.naver_image_size = 860
-        self.coupangr_thumbnail_size = 500
+        self.coupang_thumbnail_size = 500
         self.coupang_image_size = 780
+
+        self.fake_header = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.131 Safari/537.36"
+        }
 
     def start(self):
         root = ctk.CTk()
@@ -562,8 +565,7 @@ class MainUI:
             os.makedirs(folder_path, exist_ok=True)
             print(f"{product_id} => folder created!")
 
-            fake_header = self.manageVaribles.get_fake_header()
-            response = requests.get(url, headers=fake_header)
+            response = requests.get(url, headers=self.fake_header)
             soup = BeautifulSoup(response.content, "html.parser")
 
             product_name = soup.find("div", class_="product-summary-title").get_text(
@@ -574,7 +576,7 @@ class MainUI:
             for num, img_tag in enumerate(img_tags):
                 img_url = img_tag["data-large-img"]
 
-                response = requests.get(img_url, headers=fake_header)
+                response = requests.get(img_url, headers=self.fake_header)
                 filename = f"image{num + 1}.jpg"
                 with open(f"./iherb/{product_id}/{filename}", "wb+") as f:
                     f.write(response.content)
@@ -703,7 +705,7 @@ class MainUI:
         else:
             new_image = ImageOps.pad(
                 image,
-                (self.coupangr_thumbnail_size - 40, self.coupangr_thumbnail_size - 40),
+                (self.coupang_thumbnail_size - 40, self.coupang_thumbnail_size - 40),
                 color="white",
             )
         border_thickness = 10
@@ -737,8 +739,7 @@ class MainUI:
         self.manageVaribles.update_suspicious_ingredients(suspicious_ingredients_string)
 
     def iherb_ocr(self, url: str):
-        fake_header = self.manageVaribles.get_fake_header()
-        response = requests.get(url, headers=fake_header)
+        response = requests.get(url, headers=self.fake_header)
         soup = BeautifulSoup(response.content, "html.parser")
 
         container = soup.find("div", {"class": "supplement-facts-container"})
@@ -874,9 +875,6 @@ class ManageVariables:
         self._amazon_urls: List[str] = []
         self._iherb_urls: List[str] = []
         self._suspicious_ingredients = ""
-        self._fake_header = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.131 Safari/537.36"
-        }
 
     def update_amazon_iherb_option(self, value: str):
         if value.strip() == "아마존":
@@ -919,9 +917,6 @@ class ManageVariables:
 
     def get_suspicious_ingredients(self) -> str:
         return self._suspicious_ingredients
-
-    def get_fake_header(self):
-        return self._fake_header
 
 
 class ExcelCRUD:
