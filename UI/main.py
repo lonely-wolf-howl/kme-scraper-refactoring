@@ -31,6 +31,7 @@ import shutil
 import requests
 from bs4 import BeautifulSoup
 from googletrans import Translator
+import pyperclip
 
 
 class MainUI:
@@ -55,6 +56,7 @@ class MainUI:
         self.code_lable = None
         self.warning_lable = None
         self.scrollable_frame = None
+        self.url_textbox = None
 
         self.naver_thumbnail_size = 1000
         self.naver_image_size = 860
@@ -321,19 +323,19 @@ class MainUI:
         search_button.pack(fill="x", expand=True, side="left", padx=5, pady=10)
 
         # 제품 주소(URL) 출력창 = textbox
-        url_textbox = ctk.CTkTextbox(
+        self.url_textbox = ctk.CTkTextbox(
             frame_07, width=600, height=30, font=self.font_style
         )
-        url_textbox.pack(fill="x", expand=True, side="left", padx=5, pady=10)
+        self.url_textbox.pack(fill="x", expand=True, side="left", padx=5, pady=10)
 
         # 제품 주소 복사 = button
-        copy_url_button = ctk.CTkButton(
+        url_copy_button = ctk.CTkButton(
             frame_07,
             text="제품 주소 복사",
             font=self.font_style,
-            # command=copy_product_url
+            command=self.copy_product_URL,
         )
-        copy_url_button.pack(fill="x", expand=True, side="left", padx=(5, 10), pady=10)
+        url_copy_button.pack(fill="x", expand=True, side="left", padx=(5, 10), pady=10)
 
         self.UI = True
         root.mainloop()
@@ -824,6 +826,12 @@ class MainUI:
         folder_path = f"./{amazon_iherb}/{ID}"
         if os.path.exists(folder_path):
             shutil.rmtree(folder_path)
+
+    def copy_product_URL(self):
+        url = self.url_textbox.get("0.0", ctk.END)
+        pyperclip.copy(url)
+
+        self.logger("주소 복사 완료.")
 
 
 class ManageVariables:
