@@ -56,6 +56,7 @@ class MainUI:
         self.code_lable = None
         self.warning_lable = None
         self.scrollable_frame = None
+        self.code_entry = None
         self.url_textbox = None
 
         self.naver_thumbnail_size = 1000
@@ -308,17 +309,14 @@ class MainUI:
         )
 
         # 제품 번호 = entry
-        code_entry = ctk.CTkEntry(
+        self.code_entry = ctk.CTkEntry(
             frame_07, placeholder_text=" 제품 번호", font=self.font_style
         )
-        code_entry.pack(fill="x", expand=True, side="left", padx=(10, 5), pady=10)
+        self.code_entry.pack(fill="x", expand=True, side="left", padx=(10, 5), pady=10)
 
         # 검색 = button
         search_button = ctk.CTkButton(
-            frame_07,
-            text="검색",
-            font=self.font_style,
-            # command=search_product
+            frame_07, text="검색", font=self.font_style, command=self.search_product
         )
         search_button.pack(fill="x", expand=True, side="left", padx=5, pady=10)
 
@@ -827,6 +825,22 @@ class MainUI:
         if os.path.exists(folder_path):
             shutil.rmtree(folder_path)
 
+    def search_product(self):
+        option: str = self.manageVaribles.get_amazon_iherb_option()
+        id: str = self.code_entry.get()
+
+        isExists: bool = self.excelCRUD.check_product_exists(option, id)
+        if not isExists:
+            self.logger("[경고] 해당 제품은 존재하지 않습니다!")
+        else:
+            self.logger("제품 검색 완료.")
+
+            result: str = self.excelCRUD.get_product_url(option, id)
+            self.url_textbox.delete("0.0", ctk.END)
+            self.url_textbox.insert("0.0", result)
+
+            self.id_button_callback(option, id)
+
     def copy_product_URL(self):
         url = self.url_textbox.get("0.0", ctk.END)
         pyperclip.copy(url)
@@ -842,7 +856,7 @@ class ManageVariables:
         self._iherb_urls: List[str] = []
         self._suspicious_ingredients = ""
 
-    def update_amazon_iherb_option(self, value: str):
+    def update_amazon_iherb_option(self, value: str) -> None:
         if value.strip() == "아마존":
             self._amazon_iherb_option = "amazon"
         else:
@@ -852,20 +866,20 @@ class ManageVariables:
     def get_amazon_iherb_option(self) -> str:
         return self._amazon_iherb_option
 
-    def update_thumbnail_border_color(self, value: str):
+    def update_thumbnail_border_color(self, value: str) -> None:
         self._thumbnail_border_color = value.strip()
         print("thumbnail border color =>", self._thumbnail_border_color)
 
     def get_thumbnail_border_color(self) -> str:
         return self._thumbnail_border_color
 
-    def append_url(self, url: str):
+    def append_url(self, url: str) -> None:
         if self._amazon_iherb_option == "amazon":
             self._amazon_urls.append(url)
         else:
             self._iherb_urls.append(url)
 
-    def remove_url(self, url: str):
+    def remove_url(self, url: str) -> None:
         if self._amazon_iherb_option == "amazon":
             self._amazon_urls.remove(url)
         else:
@@ -877,7 +891,7 @@ class ManageVariables:
         else:
             return self._iherb_urls
 
-    def update_suspicious_ingredients(self, value: str):
+    def update_suspicious_ingredients(self, value: str) -> None:
         self._suspicious_ingredients = value
         print("suspicious ingredients =>", self._suspicious_ingredients)
 
@@ -907,28 +921,43 @@ class ExcelCRUD:
         product_name: str,
         suspicious_ingredients_string: str,
         url: str,
-    ):
+    ) -> None:
         row_values = [id, product_name, suspicious_ingredients_string, url]
 
         sheet = self._excel_file[option]
         sheet.append(row_values)
         self._excel_file.save("products.xlsx")
 
-    def get_suspicious_ingredients(self, option: str, asin_code: str) -> str:
+    def get_suspicious_ingredients(self, option: str, id: str) -> str:
         sheet = self._excel_file[option]
 
         for row in sheet.iter_rows(min_row=2, min_col=1, max_col=3):
-            if row[0].value == asin_code:
+            if row[0].value == id:
                 return row[2].value
 
         return ""
 
-    def delete_row(self, option: str, asin_code: str) -> None:
+    def delete_row(self, option: str, id: str) -> None:
         sheet = self._excel_file[option]
 
         for row in sheet.iter_rows(min_row=2, min_col=1, max_col=1):
-            if row[0].value == asin_code:
+            if row[0].value == id:
                 sheet.delete_rows(row[0].row)
                 break
 
         self._excel_file.save("products.xlsx")
+
+    def check_product_exists(self, option: str, id: str) -> bool:
+        sheet = self._excel_file[option]
+
+        for row in sheet.iter_rows(min_row=2, min_col=1, max_col=1):
+            if row[0].value == id:
+                return True
+        return False
+
+    def get_product_url(self, option: str, id: str) -> str:
+        sheet = self._excel_file[option]
+
+        for row in sheet.iter_rows(min_row=2, min_col=1, max_col=4):
+            if row[0].value == id:
+                return row[3].value
