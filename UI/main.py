@@ -2,6 +2,7 @@ import customtkinter as ctk
 import tkinter as tk
 import openpyxl
 import re
+
 # Python Type Hint
 from typing import List
 
@@ -409,6 +410,8 @@ class MainUI:
         else:
             self.iherb_crawler(option)
 
+        self.logger("모든 작업이 완료되었습니다!")
+
     def login_amazon(self, sleep_time: int, delay_time: int):
         driver.get(
             "https://www.amazon.com/-/ko/ap/signin?openid.pape.max_auth_age=0&openid.return_to=https%3A%2F%2Fwww.amazon.com%2F%3Flanguage%3Dko_KR%26ref_%3Dnav_ya_signin&openid.identity=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0%2Fidentifier_select&openid.assoc_handle=usflex&openid.mode=checkid_setup&openid.claimed_id=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0%2Fidentifier_select&openid.ns=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0&"
@@ -505,53 +508,7 @@ class MainUI:
                 url,
             )
 
-            # 제품 정보 = frame
-            product_frame = ctk.CTkFrame(self.scrollable_frame)
-            product_frame.pack(fill="x", pady=(5, 0))
-
-            # 제품 번호(asin_code) = button
-            id_button = ctk.CTkButton(
-                product_frame,
-                text=f"{asin_code}",
-                width=50,
-                font=self.font_style,
-                command=lambda ASIN_CODE=asin_code: self.id_button_callback(
-                    option, ASIN_CODE
-                ),
-            )
-            id_button.pack(side="left", padx=(5, 0), pady=5)
-
-            # 합격 = button
-            pass_button = ctk.CTkButton(
-                product_frame,
-                text="pass",
-                width=50,
-                fg_color="#217346",
-                hover_color="#005000",
-                font=self.font_style,
-                command=lambda ASIN_CODE=asin_code, frame=product_frame: self.pass_button_callback(
-                    ASIN_CODE, frame
-                ),
-            )
-            pass_button.pack(side="left", padx=5, pady=5)
-
-            # 불합격 = button
-            fail_button = ctk.CTkButton(
-                product_frame,
-                text="fail",
-                width=50,
-                fg_color="#CC3D3D",
-                hover_color="#960707",
-                font=self.font_style,
-                command=lambda ASIN_CODE=asin_code, frame=product_frame: self.fail_button_callback(
-                    option, ASIN_CODE, frame
-                ),
-            )
-            fail_button.pack(side="left", pady=5)
-
-            # 제품명 = label
-            label = ctk.CTkLabel(product_frame, text=product_name, font=self.font_style)
-            label.pack(side="left", padx=5, pady=5, anchor="center")
+            self.generate_product_frame(option, asin_code, product_name)
 
         driver.quit()
 
@@ -612,53 +569,7 @@ class MainUI:
                 url,
             )
 
-            # 제품 정보 = frame
-            product_frame = ctk.CTkFrame(self.scrollable_frame)
-            product_frame.pack(fill="x", pady=(5, 0))
-
-            # 제품 번호(product_id) = button
-            id_button = ctk.CTkButton(
-                product_frame,
-                text=f"{product_id}",
-                width=50,
-                font=self.font_style,
-                command=lambda PRODUCT_ID=product_id: self.id_button_callback(
-                    option, PRODUCT_ID
-                ),
-            )
-            id_button.pack(side="left", padx=(5, 0), pady=5)
-
-            # 합격 = button
-            pass_button = ctk.CTkButton(
-                product_frame,
-                text="pass",
-                width=50,
-                fg_color="#217346",
-                hover_color="#005000",
-                font=self.font_style,
-                command=lambda PRODUCT_ID=product_id, frame=product_frame: self.pass_button_callback(
-                    PRODUCT_ID, frame
-                ),
-            )
-            pass_button.pack(side="left", padx=5, pady=5)
-
-            # 불합격 = button
-            fail_button = ctk.CTkButton(
-                product_frame,
-                text="fail",
-                width=50,
-                fg_color="#CC3D3D",
-                hover_color="#960707",
-                font=self.font_style,
-                command=lambda PRODUCT_ID=product_id, frame=product_frame: self.fail_button_callback(
-                    option, PRODUCT_ID, frame
-                ),
-            )
-            fail_button.pack(side="left", pady=5)
-
-            # 제품명 = label
-            label = ctk.CTkLabel(product_frame, text=product_name, font=self.font_style)
-            label.pack(side="left", padx=5, pady=5, anchor="center")
+            self.generate_product_frame(option, product_id, product_name)
 
     def retouch_product_image(
         self,
@@ -817,6 +728,53 @@ class MainUI:
                     pass
 
         return suspicious_ingredients
+
+    def generate_product_frame(self, option: str, id: str, product_name: str):
+        # 제품 정보 = frame
+        product_frame = ctk.CTkFrame(self.scrollable_frame)
+        product_frame.pack(fill="x", pady=(5, 0))
+
+        # 제품 번호(asin_code) = button
+        id_button = ctk.CTkButton(
+            product_frame,
+            text=f"{id}",
+            width=50,
+            font=self.font_style,
+            command=lambda ID=id: self.id_button_callback(option, ID),
+        )
+        id_button.pack(side="left", padx=(5, 0), pady=5)
+
+        # 합격 = button
+        pass_button = ctk.CTkButton(
+            product_frame,
+            text="pass",
+            width=50,
+            fg_color="#217346",
+            hover_color="#005000",
+            font=self.font_style,
+            command=lambda ID=id, frame=product_frame: self.pass_button_callback(
+                ID, frame
+            ),
+        )
+        pass_button.pack(side="left", padx=5, pady=5)
+
+        # 불합격 = button
+        fail_button = ctk.CTkButton(
+            product_frame,
+            text="fail",
+            width=50,
+            fg_color="#CC3D3D",
+            hover_color="#960707",
+            font=self.font_style,
+            command=lambda ID=id, frame=product_frame: self.fail_button_callback(
+                option, ID, frame
+            ),
+        )
+        fail_button.pack(side="left", pady=5)
+
+        # 제품명 = label
+        label = ctk.CTkLabel(product_frame, text=product_name, font=self.font_style)
+        label.pack(side="left", padx=5, pady=5, anchor="center")
 
     def id_button_callback(
         self,
