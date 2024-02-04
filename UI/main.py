@@ -1,4 +1,5 @@
 import customtkinter as ctk
+import tkinter as tk
 import openpyxl
 import re
 
@@ -22,18 +23,21 @@ driver.get("https://www.amazon.com/")
 import time
 import os
 import requests
-from PIL import Image, ImageOps
+from PIL import Image, ImageOps, ImageTk
 from selenium.common.exceptions import NoSuchElementException
 import pytesseract
+import shutil
 
 
 class MainUI:
     def __init__(self, font, font_size):
         self.font = font
         self.font_size = font_size
+
         self.manageVaribles = ManageVariables()
         self.excelCRUD = ExcelCRUD()
 
+        # init UI
         self.UI = False  # flag
         self.id_entry = None
         self.password_entry = None
@@ -42,6 +46,11 @@ class MainUI:
         self.url_entry = None
         self.url_scrollable_frame = None
         self.log_textbox = None
+        self.product_image_canvas = None
+        self.suspicious_ingredients_textbox = None
+        self.code_lable = None
+        self.warning_lable = None
+        self.scrollable_frame = None
 
         self.naver_thumbnail_size = 1000
         self.naver_image_size = 860
@@ -184,6 +193,139 @@ class MainUI:
             textbox_frame, height=30, font=self.font_style
         )
         self.log_textbox.pack(fill="both", expand=True, padx=10, pady=10)
+
+        """
+        frame 04
+        """
+        frame_04 = ctk.CTkFrame(root)
+        frame_04.grid(row=4, column=0, padx=(10, 5), pady=5, sticky="news")
+
+        frame_04.grid_columnconfigure((1), weight=1)
+
+        # 제품 사진 출력창 = canvas
+        self.product_image_canvas = tk.Canvas(frame_04, width=200, height=200)
+        self.product_image_canvas.grid(row=0, column=0, padx=(10, 5), pady=(10, 5))
+
+        suspicious_ingredients_textbox_frame = ctk.CTkFrame(frame_04)
+        suspicious_ingredients_textbox_frame.grid(
+            row=0, column=1, padx=(5, 10), pady=(10, 5), sticky="news"
+        )
+
+        # 금지 성분 출력창 = textbox
+        self.suspicious_ingredients_textbox = ctk.CTkTextbox(
+            suspicious_ingredients_textbox_frame,
+            activate_scrollbars=False,
+            font=self.font_style,
+        )
+        self.suspicious_ingredients_textbox.pack(
+            side="left", expand=True, fill="both", padx=(5, 0), pady=5
+        )
+
+        ctk_textbox_scrollbar = ctk.CTkScrollbar(
+            suspicious_ingredients_textbox_frame,
+            command=self.suspicious_ingredients_textbox.yview,
+        )
+        ctk_textbox_scrollbar.pack(side="right", fill="y")
+
+        self.suspicious_ingredients_textbox.configure(
+            yscrollcommand=ctk_textbox_scrollbar.set
+        )
+
+        product_code = ctk.CTkFrame(frame_04, height=50)
+        product_code.grid(row=1, column=0, padx=(10, 5), pady=(5, 10), sticky="ew")
+
+        # 제품 식별자 출력창 = label
+        self.code_lable = ctk.CTkLabel(product_code, text="", font=self.font_style)
+        self.code_lable.pack(padx=5)
+
+        pass_fail_frame = ctk.CTkFrame(frame_04, height=50)
+        pass_fail_frame.grid(row=1, column=1, padx=(5, 10), pady=(5, 10), sticky="ew")
+
+        # 금지 성분 존재 여부 출력창 = label
+        self.warning_lable = ctk.CTkLabel(
+            pass_fail_frame, text="", width=250, font=self.font_style
+        )
+        self.warning_lable.pack(padx=5)
+
+        """
+        frame 05
+        """
+        frame_05 = ctk.CTkFrame(root)
+        frame_05.grid(row=3, column=0, padx=(10, 5), pady=5, sticky="news")
+
+        license_frame = ctk.CTkFrame(frame_05)
+        license_frame.pack(side="left", fill="x", expand=True, padx=(10, 5), pady=10)
+
+        # 사용자 정보 = label
+        mac_license_lable = ctk.CTkLabel(
+            license_frame, text="40-B0-76-42-8F-**", font=self.font_style
+        )
+        mac_license_lable.pack(padx=5)
+
+        list_date_frame = ctk.CTkFrame(frame_05)
+        list_date_frame.pack(side="left", fill="x", expand=True, padx=5, pady=10)
+
+        # 금지 성분 최신화 = label
+        list_date_lable = ctk.CTkLabel(
+            list_date_frame, text="금지 성분 최신화. 2022-10-16", font=self.font_style
+        )
+        list_date_lable.pack(padx=5)
+
+        version_frame = ctk.CTkFrame(frame_05)
+        version_frame.pack(side="left", fill="x", expand=True, padx=(5, 10), pady=10)
+
+        # KME. 24.1.0 = label
+        version_lable = ctk.CTkLabel(
+            version_frame, text="KME 24.1.0", font=self.font_style
+        )
+        version_lable.pack(padx=5)
+
+        """
+        frame 06
+        """
+        frame_06 = ctk.CTkFrame(root)
+        frame_06.grid(row=4, column=1, padx=(5, 10), pady=5, sticky="news")
+
+        self.scrollable_frame = ctk.CTkScrollableFrame(frame_06, width=500)
+        self.scrollable_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+        """
+        frame 07
+        """
+        frame_07 = ctk.CTkFrame(root)
+        frame_07.grid(
+            row=5, column=0, columnspan=2, padx=10, pady=(5, 10), sticky="news"
+        )
+
+        # 제품 번호 = entry
+        code_entry = ctk.CTkEntry(
+            frame_07, placeholder_text=" 제품 번호", font=self.font_style
+        )
+        code_entry.pack(fill="x", expand=True, side="left", padx=(10, 5), pady=10)
+
+        # 검색 = button
+        search_button = ctk.CTkButton(
+            frame_07,
+            text="검색",
+            font=self.font_style,
+            # command=search_product
+        )
+        search_button.pack(fill="x", expand=True, side="left", padx=5, pady=10)
+
+        # 제품 주소(URL) 출력창 = textbox
+        url_textbox = ctk.CTkTextbox(
+            frame_07, width=600, height=30, font=self.font_style
+        )
+        url_textbox.pack(fill="x", expand=True, side="left", padx=5, pady=10)
+
+        # 제품 주소 복사 = button
+        copy_url_button = ctk.CTkButton(
+            frame_07,
+            text="제품 주소 복사",
+            font=self.font_style,
+            # command=copy_product_url
+        )
+        copy_url_button.pack(fill="x", expand=True, side="left", padx=(5, 10), pady=10)
 
         self.UI = True
         root.mainloop()
@@ -344,13 +486,63 @@ class MainUI:
 
             self.ocr_ingredients(asin_code)
 
-            self.excelCRUD.update_row_values(
+            self.excelCRUD.update_row(
                 "amazon",
                 asin_code,
                 product_name,
                 self.manageVaribles.get_suspicious_ingredients(),
                 url,
             )
+
+            # 제품 정보 = frame
+            product_frame = ctk.CTkFrame(self.scrollable_frame)
+            product_frame.pack(fill="x", pady=(5, 0))
+
+            # 제품 번호(asin_code) = button
+            asin_code_button = ctk.CTkButton(
+                product_frame,
+                text=f"{asin_code}",
+                width=50,
+                font=self.font_style,
+                command=lambda ASIN_CODE=asin_code: self.asin_code_button_callback(
+                    ASIN_CODE
+                ),
+            )
+            asin_code_button.pack(side="left", padx=(5, 0), pady=5)
+
+            # 합격 = button
+            pass_button = ctk.CTkButton(
+                product_frame,
+                text="pass",
+                width=50,
+                fg_color="#217346",
+                hover_color="#005000",
+                font=self.font_style,
+                command=lambda ASIN_CODE=asin_code, frame=product_frame: self.pass_button_callback(
+                    ASIN_CODE, frame
+                ),
+            )
+            pass_button.pack(side="left", padx=5, pady=5)
+
+            # 불합격 = button
+            fail_button = ctk.CTkButton(
+                product_frame,
+                text="fail",
+                width=50,
+                fg_color="#CC3D3D",
+                hover_color="#960707",
+                font=self.font_style,
+                command=lambda ASIN_CODE=asin_code, frame=product_frame: self.fail_button_callback(
+                    ASIN_CODE, frame
+                ),
+            )
+            fail_button.pack(side="left", pady=5)
+
+            # 제품명 = label
+            label = ctk.CTkLabel(product_frame, text=product_name, font=self.font_style)
+            label.pack(side="left", padx=5, pady=5, anchor="center")
+
+        driver.quit()
 
     def retouch_product_image(
         self, naver_coupang: str, asin_code: str, image, filename: str, num: int
@@ -456,6 +648,51 @@ class MainUI:
 
         self.logger("금지 성분 검사가 완료되었습니다.")
 
+    def asin_code_button_callback(self, ASIN_CODE: str):
+        self.display_image_on_canvas(ASIN_CODE)
+        self.display_suspicious_ingredients_on_textbox(ASIN_CODE)
+        self.code_lable.configure(text=ASIN_CODE)
+        self.display_warning(ASIN_CODE)
+
+    def display_image_on_canvas(self, ASIN_CODE: str):
+        image_path = f"./amazon/{ASIN_CODE}/image1.jpg"
+        image = Image.open(image_path)
+        new_image = ImageOps.pad(image, (180, 180), color="white")
+        border_thickness = 10
+        image_with_border = ImageOps.expand(
+            new_image, border=border_thickness, fill="white"
+        )
+        photo = ImageTk.PhotoImage(image_with_border)
+        self.product_image_canvas.create_image(100, 100, anchor="center", image=photo)
+        self.product_image_canvas.image = photo
+
+    def display_suspicious_ingredients_on_textbox(self, ASIN_CODE: str):
+        value = self.excelCRUD.get_suspicious_ingredients("amazon", ASIN_CODE)
+
+        self.suspicious_ingredients_textbox.delete("0.0", ctk.END)
+        self.suspicious_ingredients_textbox.insert("0.0", value)
+
+    def display_warning(self, ASIN_CODE: str):
+        value = self.excelCRUD.get_suspicious_ingredients("amazon", ASIN_CODE)
+        if value == "":
+            self.warning_lable.configure(text="금지성분이 발견되지 않았습니다.")
+        else:
+            self.warning_lable.configure(text="의심되는 성분이 존재합니다!")
+
+    def pass_button_callback(self, ASIN_CODE: str, frame):
+        self.logger(f"'{ASIN_CODE}'는 합격입니다.")
+        frame.configure(fg_color="#217346")
+
+    def fail_button_callback(self, ASIN_CODE: str, frame):
+        self.logger(f"'{ASIN_CODE}'는 불합격입니다.")
+        frame.destroy()
+
+        self.excelCRUD.delete_row("amazon", ASIN_CODE)
+
+        folder_path = f"./amazon/{ASIN_CODE}"
+        if os.path.exists(folder_path):
+            shutil.rmtree(folder_path)
+
 
 class ManageVariables:
     def __init__(self):
@@ -516,7 +753,6 @@ class ExcelCRUD:
 
     def get_products_urls(self, option: str) -> List[str]:
         sheet = self._excel_file[option]
-        print(sheet)  # <Worksheet "...">
 
         products_urls = []
         for row in sheet.iter_rows(min_row=2, min_col=4, max_col=4):
@@ -524,7 +760,7 @@ class ExcelCRUD:
                 products_urls.append(cell.value)
         return products_urls
 
-    def update_row_values(
+    def update_row(
         self,
         option: str,
         asin_code: str,
@@ -536,4 +772,23 @@ class ExcelCRUD:
 
         sheet = self._excel_file[option]
         sheet.append(row_values)
+        self._excel_file.save("products.xlsx")
+
+    def get_suspicious_ingredients(self, option: str, asin_code: str) -> str:
+        sheet = self._excel_file[option]
+
+        for row in sheet.iter_rows(min_row=2, min_col=1, max_col=3):
+            if row[0].value == asin_code:
+                return row[2].value
+
+        return ""
+
+    def delete_row(self, option: str, asin_code: str) -> None:
+        sheet = self._excel_file[option]
+
+        for row in sheet.iter_rows(min_row=2, min_col=1, max_col=1):
+            if row[0].value == asin_code:
+                sheet.delete_rows(row[0].row)
+                break
+
         self._excel_file.save("products.xlsx")
