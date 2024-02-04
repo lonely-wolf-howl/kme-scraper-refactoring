@@ -20,13 +20,17 @@ options.add_experimental_option("detach", True)
 driver = webdriver.Chrome(options=options)
 driver.get("https://www.amazon.com/")
 
+from selenium.common.exceptions import NoSuchElementException
+
 import time
 import os
 import requests
 from PIL import Image, ImageOps, ImageTk
-from selenium.common.exceptions import NoSuchElementException
 import pytesseract
 import shutil
+import requests
+from bs4 import BeautifulSoup
+from googletrans import Translator
 
 
 class MainUI:
@@ -398,7 +402,9 @@ class MainUI:
 
         if option == "amazon":
             self.login_amazon(1, 0.5)
-            self.amazon_crawler()
+            self.amazon_crawler(option)
+        else:
+            self.iherb_crawler(option)
 
     def login_amazon(self, sleep_time: int, delay_time: int):
         driver.get(
@@ -425,7 +431,7 @@ class MainUI:
         time.sleep(sleep_time)
         driver.find_element(By.CSS_SELECTOR, "#signInSubmit").click()
 
-    def amazon_crawler(self):
+    def amazon_crawler(self, option: str):
         for url in self.manageVaribles.get_urls():
             print(url)
             time.sleep(1)
@@ -464,11 +470,11 @@ class MainUI:
 
                     if self.naver_checkbox.get():
                         self.retouch_product_image(
-                            "naver", asin_code, image, filename, num
+                            "naver", option, asin_code, image, filename, num
                         )
                     if self.coupang_checkbox.get():
                         self.retouch_product_image(
-                            "coupang", asin_code, image, filename, num
+                            "coupang", option, asin_code, image, filename, num
                         )
 
                     num += 1
@@ -478,13 +484,15 @@ class MainUI:
                     break
 
             if self.naver_checkbox.get():
-                self.create_thumbnail_image("naver", asin_code)
+                self.create_thumbnail_image("naver", option, asin_code)
             if self.coupang_checkbox.get():
-                self.create_thumbnail_image("coupang", asin_code)
+                self.create_thumbnail_image("coupang", option, asin_code)
 
             self.logger("모든 사진이 정상적으로 저장되었습니다.")
 
-            self.ocr_ingredients(asin_code)
+            self.amazon_ocr(asin_code)
+
+            self.logger("금지 성분 검사가 완료되었습니다.")
 
             self.excelCRUD.update_row(
                 "amazon",
@@ -499,16 +507,16 @@ class MainUI:
             product_frame.pack(fill="x", pady=(5, 0))
 
             # 제품 번호(asin_code) = button
-            asin_code_button = ctk.CTkButton(
+            id_button = ctk.CTkButton(
                 product_frame,
                 text=f"{asin_code}",
                 width=50,
                 font=self.font_style,
-                command=lambda ASIN_CODE=asin_code: self.asin_code_button_callback(
-                    ASIN_CODE
+                command=lambda ASIN_CODE=asin_code: self.id_button_callback(
+                    option, ASIN_CODE
                 ),
             )
-            asin_code_button.pack(side="left", padx=(5, 0), pady=5)
+            id_button.pack(side="left", padx=(5, 0), pady=5)
 
             # 합격 = button
             pass_button = ctk.CTkButton(
@@ -533,7 +541,7 @@ class MainUI:
                 hover_color="#960707",
                 font=self.font_style,
                 command=lambda ASIN_CODE=asin_code, frame=product_frame: self.fail_button_callback(
-                    ASIN_CODE, frame
+                    option, ASIN_CODE, frame
                 ),
             )
             fail_button.pack(side="left", pady=5)
@@ -544,10 +552,122 @@ class MainUI:
 
         driver.quit()
 
+    def iherb_crawler(self, option: str):
+        for url in self.manageVaribles.get_urls():
+            print(url)
+
+            product_id = url.rsplit("/", 1)[-1].replace("?rec=home", "")
+
+            folder_path = os.path.join("./iherb", f"{product_id}")
+            os.makedirs(folder_path, exist_ok=True)
+            print(f"{product_id} => folder created!")
+
+            fake_header = self.manageVaribles.get_fake_header()
+            response = requests.get(url, headers=fake_header)
+            soup = BeautifulSoup(response.content, "html.parser")
+
+            product_name = soup.find("div", class_="product-summary-title").get_text(
+                strip=True
+            )
+            img_tags = soup.find_all("img", {"data-large-img": True})
+
+            for num, img_tag in enumerate(img_tags):
+                img_url = img_tag["data-large-img"]
+
+                response = requests.get(img_url, headers=fake_header)
+                filename = f"image{num + 1}.jpg"
+                with open(f"./iherb/{product_id}/{filename}", "wb+") as f:
+                    f.write(response.content)
+                print(f"{num + 1} => save complete!")
+
+                image = Image.open(f"./iherb/{product_id}/{filename}")
+
+                if self.naver_checkbox.get():
+                    self.retouch_product_image(
+                        "naver", option, product_id, image, filename, num
+                    )
+                if self.coupang_checkbox.get():
+                    self.retouch_product_image(
+                        "coupang", option, product_id, image, filename, num
+                    )
+
+            if self.naver_checkbox.get():
+                self.create_thumbnail_image("naver", option, product_id)
+            if self.coupang_checkbox.get():
+                self.create_thumbnail_image("coupang", option, product_id)
+
+            self.logger("모든 사진이 정상적으로 저장되었습니다.")
+
+            self.iherb_ocr(url)
+
+            self.logger("금지 성분 검사가 완료되었습니다.")
+
+            self.excelCRUD.update_row(
+                "iherb",
+                product_id,
+                product_name,
+                self.manageVaribles.get_suspicious_ingredients(),
+                url,
+            )
+
+            # 제품 정보 = frame
+            product_frame = ctk.CTkFrame(self.scrollable_frame)
+            product_frame.pack(fill="x", pady=(5, 0))
+
+            # 제품 번호(product_id) = button
+            id_button = ctk.CTkButton(
+                product_frame,
+                text=f"{product_id}",
+                width=50,
+                font=self.font_style,
+                command=lambda PRODUCT_ID=product_id: self.id_button_callback(
+                    option, PRODUCT_ID
+                ),
+            )
+            id_button.pack(side="left", padx=(5, 0), pady=5)
+
+            # 합격 = button
+            pass_button = ctk.CTkButton(
+                product_frame,
+                text="pass",
+                width=50,
+                fg_color="#217346",
+                hover_color="#005000",
+                font=self.font_style,
+                command=lambda PRODUCT_ID=product_id, frame=product_frame: self.pass_button_callback(
+                    PRODUCT_ID, frame
+                ),
+            )
+            pass_button.pack(side="left", padx=5, pady=5)
+
+            # 불합격 = button
+            fail_button = ctk.CTkButton(
+                product_frame,
+                text="fail",
+                width=50,
+                fg_color="#CC3D3D",
+                hover_color="#960707",
+                font=self.font_style,
+                command=lambda PRODUCT_ID=product_id, frame=product_frame: self.fail_button_callback(
+                    option, PRODUCT_ID, frame
+                ),
+            )
+            fail_button.pack(side="left", pady=5)
+
+            # 제품명 = label
+            label = ctk.CTkLabel(product_frame, text=product_name, font=self.font_style)
+            label.pack(side="left", padx=5, pady=5, anchor="center")
+
     def retouch_product_image(
-        self, naver_coupang: str, asin_code: str, image, filename: str, num: int
+        self,
+        naver_coupang: str,
+        amazon_iherb: str,
+        id: str,
+        image,
+        filename: str,
+        num: int,
     ):
-        folder_path = os.path.join(f"./amazon/{asin_code}", f"{naver_coupang}")
+        folder_path = os.path.join(f"./{amazon_iherb}/{id}", f"{naver_coupang}")
         os.makedirs(folder_path, exist_ok=True)
 
         if naver_coupang == "naver":
@@ -567,12 +687,12 @@ class MainUI:
             new_image, border=border_thickness, fill="white"
         )
 
-        image_with_border.save(f"./amazon/{asin_code}/{naver_coupang}/{filename}")
+        image_with_border.save(f"./{amazon_iherb}/{id}/{naver_coupang}/{filename}")
 
         print(f"{num + 1} => retouch complete!")
 
-    def create_thumbnail_image(self, naver_coupang: str, asin_code: str):
-        image = Image.open(f"./amazon/{asin_code}/{naver_coupang}/image1.jpg")
+    def create_thumbnail_image(self, naver_coupang: str, amazon_iherb: str, id: str):
+        image = Image.open(f"./{amazon_iherb}/{id}/{naver_coupang}/image1.jpg")
 
         if naver_coupang == "naver":
             new_image = ImageOps.pad(
@@ -596,13 +716,12 @@ class MainUI:
             image_with_border, border=border_thickness, fill=border_color
         )
 
-        thumbnail.save(f"./amazon/{asin_code}/{naver_coupang}/thumbnail.jpg")
+        thumbnail.save(f"./{amazon_iherb}/{id}/{naver_coupang}/thumbnail.jpg")
 
-        print(f"{asin_code} => thumbnail created!")
+        print(f"{id} => thumbnail created!")
 
-    def ocr_ingredients(self, asin_code: str):
+    def amazon_ocr(self, asin_code: str):
         time.sleep(1)
-        suspicious_ingredients = []
 
         num = 0
         while os.path.exists(f"./amazon/{asin_code}/image{num + 1}.jpg"):
@@ -610,52 +729,106 @@ class MainUI:
                 Image.open(f"./amazon/{asin_code}/image{num + 1}.jpg"), lang="eng"
             )
 
-            with open("./2022.10.16.txt", "r") as f:
-                word_list = [line.strip() for line in f.readlines() if line.strip()]
-
-            found = False  # flag
-
-            for word in word_list:
-                if word.lower() in ocr_text.lower():
-                    ocr_words = ocr_text.split()
-
-                    for ocr_word in ocr_words:
-                        if word.lower() in ocr_word.lower():
-                            ocr_word = (
-                                ocr_word.replace("(", "")
-                                .replace(")", "")
-                                .replace(".", "")
-                                .replace(",", "")
-                                .replace(":", "")
-                            )
-                            warning_message = f"[ {ocr_word} ] => {word}"
-                            warning_message = warning_message.replace("?", "").replace(
-                                "_", ""
-                            )
-
-                            if warning_message not in suspicious_ingredients:
-                                suspicious_ingredients.append(warning_message)
-
-                            found = True
-
-                    if not found:
-                        pass
+            suspicious_ingredients = self.execute_ocr(ocr_text)
 
             num += 1
 
         suspicious_ingredients_string = "\n".join(suspicious_ingredients)
         self.manageVaribles.update_suspicious_ingredients(suspicious_ingredients_string)
 
-        self.logger("금지 성분 검사가 완료되었습니다.")
+    def iherb_ocr(self, url: str):
+        fake_header = self.manageVaribles.get_fake_header()
+        response = requests.get(url, headers=fake_header)
+        soup = BeautifulSoup(response.content, "html.parser")
 
-    def asin_code_button_callback(self, ASIN_CODE: str):
-        self.display_image_on_canvas(ASIN_CODE)
-        self.display_suspicious_ingredients_on_textbox(ASIN_CODE)
-        self.code_lable.configure(text=ASIN_CODE)
-        self.display_warning(ASIN_CODE)
+        container = soup.find("div", {"class": "supplement-facts-container"})
+        supplement_facts: str = container.get_text(strip=True)
+        supplement_facts = supplement_facts.replace(
+            "영양 성분 정보", "영양 성분 정보\n"
+        )
 
-    def display_image_on_canvas(self, ASIN_CODE: str):
-        image_path = f"./amazon/{ASIN_CODE}/image1.jpg"
+        container = soup.find("div", {"class": "prodOverviewIngred"})
+        other_ingredients: str = container.get_text(strip=True)
+        other_ingredients = other_ingredients.replace("주요 성분", "주요 성분\n")
+        other_ingredients = other_ingredients.replace("기타 성분", "\n기타 성분\n")
+
+        if "무함유." in other_ingredients:
+            other_ingredients = "무함유."
+        elif "이 제품은" in other_ingredients:
+            other_ingredients = other_ingredients.split("이 제품은")[0]
+        elif "이 제품에는" in other_ingredients:
+            other_ingredients = other_ingredients.split("이 제품에는")[0]
+
+        translator = Translator()
+        time.sleep(0.5)
+
+        match = re.search(r"%하루 영양소 기준치(.*?)$", supplement_facts, re.DOTALL)
+        if match:
+            extracted_text = match.group(1).strip()
+        supplement_facts: str = extracted_text
+
+        text_to_translate: str = supplement_facts + " " + other_ingredients
+
+        translated_text: str = translator.translate(text_to_translate, dest="en").text
+        translated_text = (
+            translated_text.replace("*", "")
+            .replace("The standard value per day is not set.", ", ")
+            .replace("Nothing.", "")
+        )
+
+        suspicious_ingredients = self.execute_ocr(translated_text)
+
+        suspicious_ingredients_string = "\n".join(suspicious_ingredients)
+        self.manageVaribles.update_suspicious_ingredients(suspicious_ingredients_string)
+
+    def execute_ocr(self, ocr_text: str) -> List[str]:
+        suspicious_ingredients = []
+
+        with open("./2022.10.16.txt", "r") as f:
+            word_list = [line.strip() for line in f.readlines() if line.strip()]
+
+        found = False  # flag
+
+        for word in word_list:
+            if word.lower() in ocr_text.lower():
+                ocr_words = ocr_text.split()
+
+                for ocr_word in ocr_words:
+                    if word.lower() in ocr_word.lower():
+                        ocr_word = (
+                            ocr_word.replace("(", "")
+                            .replace(")", "")
+                            .replace(".", "")
+                            .replace(",", "")
+                            .replace(":", "")
+                        )
+                        warning_message = f"[ {ocr_word} ] => {word}"
+                        warning_message = warning_message.replace("?", "").replace(
+                            "_", ""
+                        )
+
+                        if warning_message not in suspicious_ingredients:
+                            suspicious_ingredients.append(warning_message)
+
+                        found = True
+
+                if not found:
+                    pass
+
+        return suspicious_ingredients
+
+    def id_button_callback(
+        self,
+        amazon_iherb: str,
+        ID: str,
+    ):
+        self.display_image_on_canvas(amazon_iherb, ID)
+        self.display_suspicious_ingredients_on_textbox(amazon_iherb, ID)
+        self.code_lable.configure(text=ID)
+        self.display_warning(amazon_iherb, ID)
+
+    def display_image_on_canvas(self, amazon_iherb: str, ID: str):
+        image_path = f"./{amazon_iherb}/{ID}/image1.jpg"
         image = Image.open(image_path)
         new_image = ImageOps.pad(image, (180, 180), color="white")
         border_thickness = 10
@@ -666,30 +839,30 @@ class MainUI:
         self.product_image_canvas.create_image(100, 100, anchor="center", image=photo)
         self.product_image_canvas.image = photo
 
-    def display_suspicious_ingredients_on_textbox(self, ASIN_CODE: str):
-        value = self.excelCRUD.get_suspicious_ingredients("amazon", ASIN_CODE)
+    def display_suspicious_ingredients_on_textbox(self, amazon_iherb: str, ID: str):
+        value = self.excelCRUD.get_suspicious_ingredients(f"{amazon_iherb}", ID)
 
         self.suspicious_ingredients_textbox.delete("0.0", ctk.END)
         self.suspicious_ingredients_textbox.insert("0.0", value)
 
-    def display_warning(self, ASIN_CODE: str):
-        value = self.excelCRUD.get_suspicious_ingredients("amazon", ASIN_CODE)
+    def display_warning(self, amazon_iherb: str, ID: str):
+        value = self.excelCRUD.get_suspicious_ingredients(f"{amazon_iherb}", ID)
         if value == "":
             self.warning_lable.configure(text="금지성분이 발견되지 않았습니다.")
         else:
             self.warning_lable.configure(text="의심되는 성분이 존재합니다!")
 
-    def pass_button_callback(self, ASIN_CODE: str, frame):
-        self.logger(f"'{ASIN_CODE}'는 합격입니다.")
+    def pass_button_callback(self, ID: str, frame):
+        self.logger(f"'{ID}'는 합격입니다.")
         frame.configure(fg_color="#217346")
 
-    def fail_button_callback(self, ASIN_CODE: str, frame):
-        self.logger(f"'{ASIN_CODE}'는 불합격입니다.")
+    def fail_button_callback(self, amazon_iherb: str, ID: str, frame):
+        self.logger(f"'{ID}'는 불합격입니다.")
         frame.destroy()
 
-        self.excelCRUD.delete_row("amazon", ASIN_CODE)
+        self.excelCRUD.delete_row(f"{amazon_iherb}", ID)
 
-        folder_path = f"./amazon/{ASIN_CODE}"
+        folder_path = f"./{amazon_iherb}/{ID}"
         if os.path.exists(folder_path):
             shutil.rmtree(folder_path)
 
@@ -701,6 +874,9 @@ class ManageVariables:
         self._amazon_urls: List[str] = []
         self._iherb_urls: List[str] = []
         self._suspicious_ingredients = ""
+        self._fake_header = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.131 Safari/537.36"
+        }
 
     def update_amazon_iherb_option(self, value: str):
         if value.strip() == "아마존":
@@ -744,6 +920,9 @@ class ManageVariables:
     def get_suspicious_ingredients(self) -> str:
         return self._suspicious_ingredients
 
+    def get_fake_header(self):
+        return self._fake_header
+
 
 class ExcelCRUD:
     def __init__(self):
@@ -763,12 +942,12 @@ class ExcelCRUD:
     def update_row(
         self,
         option: str,
-        asin_code: str,
+        id: str,
         product_name: str,
         suspicious_ingredients_string: str,
         url: str,
     ):
-        row_values = [asin_code, product_name, suspicious_ingredients_string, url]
+        row_values = [id, product_name, suspicious_ingredients_string, url]
 
         sheet = self._excel_file[option]
         sheet.append(row_values)
