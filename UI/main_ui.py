@@ -112,7 +112,7 @@ class MainUI:
         self.id_entry.pack(side="top", fill="x", expand=True, padx=20, pady=(10, 2.5))
         # Password = entry
         self.password_entry = ctk.CTkEntry(
-            entry_frame, placeholder_text=" Password", font=self.font_style
+            entry_frame, placeholder_text=" Password", font=self.font_style, show="*"
         )
         self.password_entry.pack(
             side="bottom", fill="x", expand=True, padx=20, pady=(2.5, 10)
@@ -350,7 +350,7 @@ class MainUI:
 
         url = self.url_entry.get().strip()
 
-        products_urls_from_excel = self.excelCRUD.get_products_urls(option)
+        products_urls_from_excel = self.excelCRUD.get_all_product_url(option)
 
         if url in products_urls_from_excel:
             self.logger("[경고] 중복되는 제품 주소가 존재합니다!")

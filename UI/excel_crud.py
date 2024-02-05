@@ -8,7 +8,7 @@ class ExcelCRUD:
             "products.xlsx", data_only=True
         )  # from app.py
 
-    def get_products_urls(self, option: str) -> List[str]:
+    def get_all_product_url(self, option: str) -> List[str]:
         sheet = self._excel_file[option]
 
         products_urls = []
@@ -16,6 +16,13 @@ class ExcelCRUD:
             for cell in row:
                 products_urls.append(cell.value)
         return products_urls
+
+    def get_product_url(self, option: str, id: str) -> str:
+        sheet = self._excel_file[option]
+
+        for row in sheet.iter_rows(min_row=2, min_col=1, max_col=4):
+            if row[0].value == id:
+                return row[3].value
 
     def update_row(
         self,
@@ -57,10 +64,3 @@ class ExcelCRUD:
             if row[0].value == id:
                 return True
         return False
-
-    def get_product_url(self, option: str, id: str) -> str:
-        sheet = self._excel_file[option]
-
-        for row in sheet.iter_rows(min_row=2, min_col=1, max_col=4):
-            if row[0].value == id:
-                return row[3].value

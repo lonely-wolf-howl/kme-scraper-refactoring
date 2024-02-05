@@ -2,8 +2,8 @@ from mac.checker import MACAddressChecker
 from ui.warning_ui import WarningUI
 from ui.main_ui import MainUI
 
-from dotenv import load_dotenv
 import os
+from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -24,9 +24,9 @@ class App:
         self.macAddressChecker = MACAddressChecker(
             default_set_date, days, default_mac_address
         )
-        self.access_denied = WarningUI(warning_message_access_denied)
+        self.access_denied = WarningUI(font, font_size, warning_message_access_denied)
         self.main = MainUI(font, font_size)
-        self.expired = WarningUI(warning_message_expired)
+        self.expired = WarningUI(font, font_size, warning_message_expired)
 
     def start(self):
         if self.macAddressChecker.is_default_mac_address():
