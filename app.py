@@ -1,6 +1,7 @@
 from mac.checker import MACAddressChecker
-from ui.warning import WarningUI
-from ui.main import MainUI
+from ui.warning_ui import WarningUI
+from ui.main_ui import MainUI
+
 from dotenv import load_dotenv
 import os
 

@@ -1,6 +1,8 @@
+from .manage_variables import ManageVariables
+from .excel_crud import ExcelCRUD
+
 import customtkinter as ctk
 import tkinter as tk
-import openpyxl
 import re
 
 # Python Type Hint
@@ -846,118 +848,3 @@ class MainUI:
         pyperclip.copy(url)
 
         self.logger("주소 복사 완료.")
-
-
-class ManageVariables:
-    def __init__(self):
-        self._amazon_iherb_option = "amazon"
-        self._thumbnail_border_color = "white"
-        self._amazon_urls: List[str] = []
-        self._iherb_urls: List[str] = []
-        self._suspicious_ingredients = ""
-
-    def update_amazon_iherb_option(self, value: str) -> None:
-        if value.strip() == "아마존":
-            self._amazon_iherb_option = "amazon"
-        else:
-            self._amazon_iherb_option = "iherb"
-        print("amazon/iherb =>", self._amazon_iherb_option)
-
-    def get_amazon_iherb_option(self) -> str:
-        return self._amazon_iherb_option
-
-    def update_thumbnail_border_color(self, value: str) -> None:
-        self._thumbnail_border_color = value.strip()
-        print("thumbnail border color =>", self._thumbnail_border_color)
-
-    def get_thumbnail_border_color(self) -> str:
-        return self._thumbnail_border_color
-
-    def append_url(self, url: str) -> None:
-        if self._amazon_iherb_option == "amazon":
-            self._amazon_urls.append(url)
-        else:
-            self._iherb_urls.append(url)
-
-    def remove_url(self, url: str) -> None:
-        if self._amazon_iherb_option == "amazon":
-            self._amazon_urls.remove(url)
-        else:
-            self._iherb_urls.remove(url)
-
-    def get_urls(self) -> List[str]:
-        if self._amazon_iherb_option == "amazon":
-            return self._amazon_urls
-        else:
-            return self._iherb_urls
-
-    def update_suspicious_ingredients(self, value: str) -> None:
-        self._suspicious_ingredients = value
-        print("suspicious ingredients =>", self._suspicious_ingredients)
-
-    def get_suspicious_ingredients(self) -> str:
-        return self._suspicious_ingredients
-
-
-class ExcelCRUD:
-    def __init__(self):
-        self._excel_file = openpyxl.load_workbook(
-            "products.xlsx", data_only=True
-        )  # from app.py
-
-    def get_products_urls(self, option: str) -> List[str]:
-        sheet = self._excel_file[option]
-
-        products_urls = []
-        for row in sheet.iter_rows(min_row=2, min_col=4, max_col=4):
-            for cell in row:
-                products_urls.append(cell.value)
-        return products_urls
-
-    def update_row(
-        self,
-        option: str,
-        id: str,
-        product_name: str,
-        suspicious_ingredients_string: str,
-        url: str,
-    ) -> None:
-        row_values = [id, product_name, suspicious_ingredients_string, url]
-
-        sheet = self._excel_file[option]
-        sheet.append(row_values)
-        self._excel_file.save("products.xlsx")
-
-    def get_suspicious_ingredients(self, option: str, id: str) -> str:
-        sheet = self._excel_file[option]
-
-        for row in sheet.iter_rows(min_row=2, min_col=1, max_col=3):
-            if row[0].value == id:
-                return row[2].value
-
-        return ""
-
-    def delete_row(self, option: str, id: str) -> None:
-        sheet = self._excel_file[option]
-
-        for row in sheet.iter_rows(min_row=2, min_col=1, max_col=1):
-            if row[0].value == id:
-                sheet.delete_rows(row[0].row)
-                break
-
-        self._excel_file.save("products.xlsx")
-
-    def check_product_exists(self, option: str, id: str) -> bool:
-        sheet = self._excel_file[option]
-
-        for row in sheet.iter_rows(min_row=2, min_col=1, max_col=1):
-            if row[0].value == id:
-                return True
-        return False
-
-    def get_product_url(self, option: str, id: str) -> str:
-        sheet = self._excel_file[option]
-
-        for row in sheet.iter_rows(min_row=2, min_col=1, max_col=4):
-            if row[0].value == id:
-                return row[3].value
