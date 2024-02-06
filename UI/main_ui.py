@@ -347,18 +347,14 @@ class MainUI:
 
     def check_duplicates_and_add_URL(self):
         option: str = self.manageVaribles.get_amazon_iherb_option()
-
-        url = self.url_entry.get().strip()
-
-        products_urls_from_excel = self.excelCRUD.get_all_product_url(option)
+        url: str = self.url_entry.get().strip()
+        products_urls_from_excel: List[str] = self.excelCRUD.get_all_product_url(option)
 
         if url in products_urls_from_excel:
             self.logger("[경고] 중복되는 제품 주소가 존재합니다!")
         else:
             self.logger("제품 주소가 추가되었습니다.")
-
             self.manageVaribles.append_url(url)
-
             self.generate_url_frame(option, url)
 
     def generate_url_frame(self, option: str, url: str):
@@ -407,7 +403,7 @@ class MainUI:
     def images_and_ingredients(self):
         option: str = self.manageVaribles.get_amazon_iherb_option()
 
-        self.logger("처리 중입니다. 여유롭게 기다려주세요!")
+        self.logger("처리 중입니다...")
 
         if option == "amazon":
             self.login_amazon(1, 0.5)
