@@ -359,47 +359,50 @@ class MainUI:
 
             self.manageVaribles.append_url(url)
 
-            # 제품 주소 = frame
-            url_frame = ctk.CTkFrame(self.url_scrollable_frame)
-            url_frame.pack(fill="x", pady=(5, 0))
+            self.generate_url_frame(option, url)
 
-            # 삭제 = button
-            delete_button = ctk.CTkButton(
+    def generate_url_frame(self, option: str, url: str):
+        # 제품 주소 = frame
+        url_frame = ctk.CTkFrame(self.url_scrollable_frame)
+        url_frame.pack(fill="x", pady=(5, 0))
+
+        # 삭제 = button
+        delete_button = ctk.CTkButton(
+            url_frame,
+            text="삭제",
+            width=50,
+            fg_color="#CC3D3D",
+            hover_color="#960707",
+            font=self.font_style,
+            command=lambda frame=url_frame, url=url: (
+                self.manageVaribles.remove_url(url),
+                self.logger("삭제 완료!"),
+                frame.destroy(),
+            ),
+        )
+        delete_button.pack(side="left", padx=5, pady=5)
+
+        if option == "amazon":
+            asin_code = re.search(r"dp\/([A-Z0-9]{10})\/", url).group(1)
+            # 제품 번호(asin_code) = button
+            asin_code_button = ctk.CTkButton(
                 url_frame,
-                text="삭제",
+                text=f"{asin_code}",
                 width=50,
-                fg_color="#CC3D3D",
-                hover_color="#960707",
                 font=self.font_style,
-                command=lambda frame=url_frame, url=url: (
-                    self.manageVaribles.remove_url(url),
-                    self.logger("삭제 완료!"),
-                    frame.destroy(),
-                ),
             )
-            delete_button.pack(side="left", padx=5, pady=5)
+            asin_code_button.pack(side="left", pady=5)
+        else:
+            product_id = url.rsplit("/", 1)[-1].replace("?rec=home", "")
+            # 제품 번호(product_id) = button
+            product_id_button = ctk.CTkButton(
+                url_frame, text=f"{product_id}", width=50, font=self.font_style
+            )
+            product_id_button.pack(side="left", pady=5)
 
-            if option == "amazon":
-                asin_code = re.search(r"dp\/([A-Z0-9]{10})\/", url).group(1)
-                # 제품 번호(asin_code) = button
-                asin_code_button = ctk.CTkButton(
-                    url_frame,
-                    text=f"{asin_code}",
-                    width=50,
-                    font=self.font_style,
-                )
-                asin_code_button.pack(side="left", pady=5)
-            else:
-                product_id = url.rsplit("/", 1)[-1].replace("?rec=home", "")
-                # 제품 번호(product_id) = button
-                product_id_button = ctk.CTkButton(
-                    url_frame, text=f"{product_id}", width=50, font=self.font_style
-                )
-                product_id_button.pack(side="left", pady=5)
-
-            # 제품 주소 = label
-            label = ctk.CTkLabel(url_frame, text=url, font=self.font_style)
-            label.pack(side="left", padx=5, pady=5, anchor="center")
+        # 제품 주소 = label
+        label = ctk.CTkLabel(url_frame, text=url, font=self.font_style)
+        label.pack(side="left", padx=5, pady=5, anchor="center")
 
     def images_and_ingredients(self):
         option: str = self.manageVaribles.get_amazon_iherb_option()
